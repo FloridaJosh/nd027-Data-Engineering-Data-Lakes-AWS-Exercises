@@ -1,0 +1,277 @@
+~ $ aws s3 mb s3://sleepy-ninja-wgu-d609
+make_bucket: sleepy-ninja-wgu-d609
+~ $ aws ec2 describe-vpcs
+{
+    "Vpcs": [
+        {
+            "OwnerId": "326166830824",
+            "InstanceTenancy": "default",
+            "CidrBlockAssociationSet": [
+                {
+                    "AssociationId": "vpc-cidr-assoc-056dd31974d8afa00",
+                    "CidrBlock": "172.31.0.0/16",
+                    "CidrBlockState": {
+                        "State": "associated"
+                    }
+                }
+            ],
+            "IsDefault": true,
+            "BlockPublicAccessStates": {
+                "InternetGatewayBlockMode": "off"
+            },
+            "VpcId": "vpc-07cbb92ae9ba2d00f",
+            "State": "available",
+            "CidrBlock": "172.31.0.0/16",
+            "DhcpOptionsId": "dopt-02c4ab8139f4f14ac"
+        }
+    ]
+}
+
+~ $ aws ec2 describe-route-tables
+{
+    "RouteTables": [
+        {
+            "Associations": [
+                {
+                    "Main": true,
+                    "RouteTableAssociationId": "rtbassoc-04f4e109be8a87562",
+                    "RouteTableId": "rtb-06ea3438ec044f74e",
+                    "AssociationState": {
+                        "State": "associated"
+                    }
+                }
+            ],
+            "PropagatingVgws": [],
+            "RouteTableId": "rtb-06ea3438ec044f74e",
+            "Routes": [
+                {
+                    "DestinationCidrBlock": "172.31.0.0/16",
+                    "GatewayId": "local",
+                    "Origin": "CreateRouteTable",
+                    "State": "active"
+                },
+                {
+                    "DestinationCidrBlock": "0.0.0.0/0",
+                    "GatewayId": "igw-06302173a1c7cd9a3",
+                    "Origin": "CreateRoute",
+                    "State": "active"
+                }
+            ],
+            "Tags": [],
+            "VpcId": "vpc-07cbb92ae9ba2d00f",
+            "OwnerId": "326166830824"
+        }
+    ]
+}
+~ $ 
+
+~ $ aws ec2 create-vpc-endpoint --vpc-id vpc-07cbb92ae9ba2d00f --service-name com.amazonaws.us-east-1.s3 --route-table-ids rtb-06ea3438ec044f74e
+{
+    "VpcEndpoint": {
+        "VpcEndpointId": "vpce-04248732cdedd8534",
+        "VpcEndpointType": "Gateway",
+        "VpcId": "vpc-07cbb92ae9ba2d00f",
+        "ServiceName": "com.amazonaws.us-east-1.s3",
+        "State": "available",
+        "PolicyDocument": "{\"Version\":\"2008-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"*\",\"Resource\":\"*\"}]}",
+        "RouteTableIds": [
+            "rtb-06ea3438ec044f74e"
+        ],
+        "SubnetIds": [],
+        "Groups": [],
+        "PrivateDnsEnabled": false,
+        "RequesterManaged": false,
+        "NetworkInterfaceIds": [],
+        "DnsEntries": [],
+        "CreationTimestamp": "2025-02-23T02:57:03+00:00",
+        "OwnerId": "326166830824"
+    }
+}
+~ $ 
+
+~ $ aws iam create-role --role-name my-glue-service-role --assume-role-policy-document '{
+    >     "Version": "2012-10-17",
+    >     "Statement": [
+    >         {
+    >             "Effect": "Allow",
+    >             "Principal": {
+    >                 "Service": "glue.amazonaws.com"
+    >             },
+    >             "Action": "sts:AssumeRole"
+    >         }
+    >     ]
+    > }'
+    {
+        "Role": {
+            "Path": "/",
+            "RoleName": "my-glue-service-role",
+            "RoleId": "AROAUX4IO33UB5VUHYX4O",
+            "Arn": "arn:aws:iam::326166830824:role/my-glue-service-role",
+            "CreateDate": "2025-02-23T02:58:14+00:00",
+            "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "glue.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            }
+        }
+    }
+~ $ 
+
+~ $ aws iam put-role-policy --role-name my-glue-service-role --policy-name S3Access --policy-document '{
+    >     "Version": "2012-10-17",
+    >     "Statement": [
+    >         {
+    >             "Sid": "ListObjectsInBucket",
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "s3:ListBucket"
+    >             ],
+    >             "Resource": [
+    >                 "arn:aws:s3:::sleepy-ninja-wgu-d609"
+    >             ]
+    >         },
+    >         {
+    >             "Sid": "AllObjectActions",
+    >             "Effect": "Allow",
+    >             "Action": "s3:*Object",
+    >             "Resource": [
+    >                 "arn:aws:s3:::sleepy-ninja-wgu-d609/*"
+    >             ]
+    >         }
+    >     ]
+    > }'
+    ~ $ 
+
+~ $ aws iam put-role-policy --role-name my-glue-service-role --policy-name GlueAccess --policy-document '{
+    >     "Version": "2012-10-17",
+    >     "Statement": [
+    >         {
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "glue:*",
+    >                 "s3:GetBucketLocation",
+    >                 "s3:ListBucket",
+    >                 "s3:ListAllMyBuckets",
+    >                 "s3:GetBucketAcl",
+    >                 "ec2:DescribeVpcEndpoints",
+    >                 "ec2:DescribeRouteTables",
+    >                 "ec2:CreateNetworkInterface",
+    >                 "ec2:DeleteNetworkInterface",
+    >                 "ec2:DescribeNetworkInterfaces",
+    >                 "ec2:DescribeSecurityGroups",
+    >                 "ec2:DescribeSubnets",
+    >                 "ec2:DescribeVpcAttribute",
+    >                 "iam:ListRolePolicies",
+    >                 "iam:GetRole",
+    >                 "iam:GetRolePolicy",
+    >                 "cloudwatch:PutMetricData"
+    >             ],
+    >             "Resource": [
+    >                 "*"
+    >             ]
+    >         },
+    >         {
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "s3:CreateBucket",
+    >                 "s3:PutBucketPublicAccessBlock"
+    >             ],
+    >             "Resource": [
+    >                 "arn:aws:s3:::aws-glue-*"
+    >             ]
+    >         },
+    >         {
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "s3:GetObject",
+    >                 "s3:PutObject",
+    >                 "s3:DeleteObject"
+    >             ],
+    >             "Resource": [
+    >                 "arn:aws:s3:::aws-glue-*/*",
+    >                 "arn:aws:s3:::*/*aws-glue-*/*"
+    >             ]
+    >         },
+    >         {
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "s3:GetObject"
+    >             ],
+    >             "Resource": [
+    >                 "arn:aws:s3:::crawler-public*",
+    >                 "arn:aws:s3:::aws-glue-*"
+    >             ]
+    >         },
+    >         {
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "logs:CreateLogGroup",
+    >                 "logs:CreateLogStream",
+    >                 "logs:PutLogEvents",
+    >                 "logs:AssociateKmsKey"
+    >             ],
+    >             "Resource": [
+    >                 "arn:aws:logs:*:*:/aws-glue/*"
+    >             ]
+    >         },
+    >         {
+    >             "Effect": "Allow",
+    >             "Action": [
+    >                 "ec2:CreateTags",
+    >                 "ec2:DeleteTags"
+    >             ],
+    >             "Condition": {
+    >                 "ForAllValues:StringEquals": {
+    >                     "aws:TagKeys": [
+    >                         "aws-glue-service-resource"
+    >                     ]
+    >                 }
+    >             },
+    >             "Resource": [
+    >                 "arn:aws:ec2:*:*:network-interface/*",
+    >                 "arn:aws:ec2:*:*:security-group/*",
+    >                 "arn:aws:ec2:*:*:instance/*"
+    >             ]
+    >         }
+    >     ]
+    > }'
+~ $ 
+~ $ git clone https://github.com/udacity/nd027-Data-Engineering-Data-Lakes-AWS-Exercises.git
+Cloning into 'nd027-Data-Engineering-Data-Lakes-AWS-Exercises'...
+remote: Enumerating objects: 1828, done.
+remote: Counting objects: 100% (182/182), done.
+remote: Compressing objects: 100% (93/93), done.
+remote: Total 1828 (delta 84), reused 164 (delta 79), pack-reused 1646 (from 1)
+Receiving objects: 100% (1828/1828), 30.77 MiB | 16.53 MiB/s, done.
+Resolving deltas: 100% (1433/1433), done.
+
+~ $ cd /home/cloudshell-user/nd027-Data-Engineering-Data-Lakes-AWS-Exercises/project/starter/customer/landing
+landing $ ls
+customer-1691348231425.json
+landing $ aws s3 cp customer-1691348231425.json s3://sleepy-ninja-wgu-d609/customer/landing/
+upload: ./customer-1691348231425.json to s3://sleepy-ninja-wgu-d609/customer/landing/customer-1691348231425.json
+landing $ cd /home/cloudshell-user/nd027-Data-Engineering-Data-Lakes-AWS-Exercises/project/starter/
+
+starter $ aws s3 cp accelerometer/ s3://sleepy-ninja-wgu-d609/accelerometer/ --recursive
+upload: accelerometer/landing/accelerometer-1691348231495.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231495.json
+upload: accelerometer/landing/accelerometer-1691348231576.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231576.json
+upload: accelerometer/landing/accelerometer-1691348231931.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231931.json
+upload: accelerometer/landing/accelerometer-1691348231810.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231810.json
+upload: accelerometer/landing/accelerometer-1691348231724.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231724.json
+upload: accelerometer/landing/accelerometer-1691348232031.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348232031.json
+upload: accelerometer/landing/accelerometer-1691348231445.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231445.json
+upload: accelerometer/landing/accelerometer-1691348231983.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231983.json
+upload: accelerometer/landing/accelerometer-1691348231881.json to s3://sleepy-ninja-wgu-d609/accelerometer/landing/accelerometer-1691348231881.json
+
+starter $ aws s3 cp step_trainer/ s3://sleepy-ninja-wgu-d609/step_trainer/ --recursive
+upload: step_trainer/landing/step_trainer-1691348232132.json to s3://sleepy-ninja-wgu-d609/step_trainer/landing/step_trainer-1691348232132.json
+upload: step_trainer/landing/step_trainer-1691348232038.json to s3://sleepy-ninja-wgu-d609/step_trainer/landing/step_trainer-1691348232038.json
+upload: step_trainer/landing/step_trainer-1691348232085.json to s3://sleepy-ninja-wgu-d609/step_trainer/landing/step_trainer-1691348232085.json
+starter $ 
